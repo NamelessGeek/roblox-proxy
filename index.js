@@ -1,27 +1,34 @@
 const express = require('express');
+const fetch = require('node-fetch');
 const app = express();
+const PORT = process.env.PORT || 10000;
 
-const PORT = process.env.PORT || 3000; // Render will set the PORT automatically
+const GAME_ID = YOUR_GAME_ID; // put your Roblox game's ID here
 
-// Allow Roblox Studio to access the API
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   next();
 });
 
-// Root route to check if server is running
-app.get('/', (req, res) => res.send('roblox-proxy running'));
+app.get('/gamepasses/:userId', async (req, res) => {
+  try {
+    const response = await fetch(`https://games.roblox.com/v1/games/${GAME_ID}/game-passes?limit=100`);
+    const data = await response.json();
 
-// Gamepasses route (dummy/test data)
-app.get('/gamepasses/:userId', (req, res) => {
-  const userId = req.params.userId;
-  // Return fake gamepasses for testing
-  const passes = [
-    { id: 123456, name: "VIP Pass", price: 50 },
-    { id: 234567, name: "Super Pass", price: 100 },
-    { id: 345678, name: "Elite Pass", price: 200 }
-  ];
-  return res.json(passes);
+    // Optionally filter passes for specific owner
+    const userId = req.params.userId;
+    const passes = (data.data || []).map(gp => ({
+      id: gp.id,
+      name: gp.name,
+      price: gp.price || 0,
+      ownerId: userId // mark who the owner is
+    }));
+
+    res.json(passes);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Fetch failed' });
+  }
 });
 
-app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
+app.listen(PORT, () => console.log(`Proxy running on port ${PORT}`));
